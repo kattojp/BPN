@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>血圧カメラ記録ノート</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 pb-12">
+
+  <!-- ヘッダー -->
+  <header class="bg-indigo-600 text-white shadow-lg sticky top-0 z-30">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid font-bold fa-heart-pulse text-2xl text-rose-300"></i>
+        <h1 class="text-xl font-bold tracking-wide">血圧カメラ記録ノート</h1>
+      </div>
+      <button id="openConfigBtn" class="p-2 rounded-full hover:bg-indigo-500 transition" title="設定">
+        <i class="fa-solid fa-gear text-lg"></i>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 mt-6 space-y-6">
+
+    <!-- 1. 撮影・解析セクション -->
+    <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+      <h2 class="text-lg font-bold text-slate-700 mb-3 flex items-center gap-2">
+        <i class="fa-solid fa-camera text-indigo-500"></i> 血圧計を撮影する
+      </h2>
+
+      <!-- カメラ / プレビュー領域 -->
+      <div class="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-xl p-4 bg-slate-50 relative overflow-hidden min-h-[180px]">
+        <img id="imagePreview" class="max-h-64 rounded-lg hidden object-contain mb-3" alt="プレビュー">
+        <div id="uploadPlaceholder" class="text-center py-4">
+          <i class="fa-solid fa-camera-retro text-4xl text-slate-400 mb-2"></i>
+          <p class="text-sm text-slate-500">下のボタンを押して血圧計を撮影してください</p>
+        </div>
+        
+        <!-- カメラ起動ボタン -->
+        <label class="cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 text-base shadow-md transition mt-2">
+          <i class="fa-solid fa-camera text-lg"></i> カメラを起動して撮影
+          <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden">
+        </label>
+      </div>
+
+      <!-- ローディング ＆ 成功メッセージ -->
+      <div id="loadingSpinner" class="hidden text-center py-4">
+        <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent"></div>
+        <p class="text-sm text-slate-600 font-bold mt-2">AIが画面を読み取っています...</p>
+      </div>
+
+      <div id="successBanner" class="hidden mt-3 bg-emerald-50 border-2 border-emerald-400 text-emerald-800 p-4 rounded-xl text-center font-bold text-base shadow-sm animate-pulse">
+        <i class="fa-solid fa-circle-check text-emerald-600 text-xl mr-2"></i> 読み取り成功しました！下の数値を確認して保存してください
+      </div>
+    </section>
+
+    <!-- 2. 入力・保存フォーム -->
+    <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+      <h2 class="text-lg font-bold text-slate-700 mb-3 flex items-center gap-2">
+        <i class="fa-solid fa-pen-to-square text-indigo-500"></i> 記録内容の確認・保存
+      </h2>
+      <form id="recordForm" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">日時</label>
+          <input type="datetime-local" id="inputDateTime" required class="w-full bg-slate-50 border border-slate-300 rounded-lg p-3 text-base focus:ring-2 focus:ring-indigo-400 outline-none">
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <div class="bg-rose-50 border border-rose-200 p-3 rounded-xl text-center">
+            <span class="block text-xs font-semibold text-rose-600 mb-1">最高血圧</span>
+            <input type="number" id="inputSys" placeholder="120" required class="w-full bg-white border border-rose-300 rounded-lg p-2 text-center text-xl font-bold text-rose-700 outline-none">
+            <span class="block text-[10px] text-slate-400 mt-1">mmHg</span>
+          </div>
+          <div class="bg-blue-50 border border-blue-200 p-3 rounded-xl text-center">
+            <span class="block text-xs font-semibold text-blue-600 mb-1">最低血圧</span>
+            <input type="number" id="inputDia" placeholder="80" required class="w-full bg-white border border-blue-300 rounded-lg p-2 text-center text-xl font-bold text-blue-700 outline-none">
+            <span class="block text-[10px] text-slate-400 mt-1">mmHg</span>
+          </div>
+          <div class="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-center">
+            <span class="block text-xs font-semibold text-emerald-600 mb-1">脈拍</span>
+            <input type="number" id="inputPulse" placeholder="70" required class="w-full bg-white border border-emerald-300 rounded-lg p-2 text-center text-xl font-bold text-emerald-700 outline-none">
+            <span class="block text-[10px] text-slate-400 mt-1">bpm</span>
+          </div>
+        </div>
+
+        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-md text-base transition flex justify-center items-center gap-2">
+          <i class="fa-solid fa-bookmark text-lg"></i> この記録を端末に保存する
+        </button>
+      </form>
+    </section>
+
+    <!-- 3. データ履歴＆CSV出力管理 -->
+    <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 space-y-4">
+      <div class="flex justify-between items-center">
+        <h2 class="text-lg font-bold text-slate-700 flex items-center gap-2">
+          <i class="fa-solid fa-clock-rotate-left text-indigo-500"></i> 測定履歴
+        </h2>
+        <span id="recordCount" class="text-xs bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full font-semibold">0 件</span>
+      </div>
+
+      <!-- アクションバー（Googleドライブ保存 ＆ CSV手動保存） -->
+      <div class="space-y-2 pt-1 border-t border-slate-100">
+        <button id="uploadDriveBtn" class="w-full bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold py-3.5 px-3 rounded-xl flex items-center justify-center gap-2 shadow transition">
+          <i class="fa-solid fa-cloud-arrow-up text-lg"></i> GoogleドライブへCSV保存
+        </button>
+        
+        <div class="flex gap-2">
+          <button id="downloadCsvBtn" class="flex-1 bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 transition">
+            <i class="fa-solid fa-file-csv text-base"></i> スマホにCSV保存
+          </button>
+          <button id="clearAllBtn" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1 transition">
+            <i class="fa-solid fa-trash-can"></i> 全削除
+          </button>
+        </div>
+      </div>
+
+      <!-- 履歴リスト -->
+      <div id="historyList" class="space-y-3 max-h-80 overflow-y-auto pr-1">
+        <!-- 動的追加 -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- モーダル: 設定 -->
+  <div id="configModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-gear text-indigo-500"></i> APIキー / 連携設定</h3>
+        <button id="closeConfigBtn" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 mb-1">Gemini API Key</label>
+        <input type="password" id="apiKeyInput" placeholder="AIzaSy..." class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 mb-1">GAS Web App URL (Googleドライブ用)</label>
+        <input type="url" id="gasUrlInput" placeholder="https://script.google.com/macros/s/..." class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-400 outline-none">
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button id="saveApiKeyBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl transition">
+          保存する
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const EMBEDDED_API_KEY = "";
+    // 先ほどデプロイして取得したGASのURLをあらかじめ埋め込んでいます
+    const EMBEDDED_GAS_URL = "https://script.google.com/macros/s/AKfycbyggKADWzUI7TUq-_vVhz1LWu-vkUhV1-C6V6vS6btg6mCFTVJkkRnz0GbVdPPkMLqeSQ/exec";
+
+    let records = JSON.parse(localStorage.getItem('bp_records') || '[]');
+    let currentImageBase64 = null;
+
+    const cameraInput = document.getElementById('cameraInput');
+    const imagePreview = document.getElementById('imagePreview');
+    const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    const successBanner = document.getElementById('successBanner');
+
+    const recordForm = document.getElementById('recordForm');
+    const inputDateTime = document.getElementById('inputDateTime');
+    const inputSys = document.getElementById('inputSys');
+    const inputDia = document.getElementById('inputDia');
+    const inputPulse = document.getElementById('inputPulse');
+
+    const historyList = document.getElementById('historyList');
+    const recordCount = document.getElementById('recordCount');
+    const uploadDriveBtn = document.getElementById('uploadDriveBtn');
+    const downloadCsvBtn = document.getElementById('downloadCsvBtn');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+
+    const configModal = document.getElementById('configModal');
+    const openConfigBtn = document.getElementById('openConfigBtn');
+    const closeConfigBtn = document.getElementById('closeConfigBtn');
+    const apiKeyInput = document.getElementById('apiKeyInput');
+    const gasUrlInput = document.getElementById('gasUrlInput');
+    const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
+
+    window.addEventListener('DOMContentLoaded', () => {
+      setDefaultDateTime();
+      renderHistory();
+    });
+
+    function setDefaultDateTime() {
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      inputDateTime.value = now.toISOString().slice(0, 16);
+    }
+
+    function getApiKey() {
+      return localStorage.getItem('gemini_api_key') || EMBEDDED_API_KEY;
+    }
+
+    function getGasUrl() {
+      return localStorage.getItem('gas_app_url') || EMBEDDED_GAS_URL;
+    }
+
+    openConfigBtn.addEventListener('click', () => {
+      apiKeyInput.value = getApiKey();
+      gasUrlInput.value = getGasUrl();
+      configModal.classList.remove('hidden');
+    });
+
+    closeConfigBtn.addEventListener('click', () => configModal.classList.add('hidden'));
+
+    saveApiKeyBtn.addEventListener('click', () => {
+      localStorage.setItem('gemini_api_key', apiKeyInput.value.trim());
+      localStorage.setItem('gas_app_url', gasUrlInput.value.trim());
+      configModal.classList.add('hidden');
+      alert('設定を保存しました。');
+    });
+
+    // --- 撮影時に自動OCR解析 ---
+    cameraInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      successBanner.classList.add('hidden');
+
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        currentImageBase64 = event.target.result;
+        imagePreview.src = currentImageBase64;
+        imagePreview.classList.remove('hidden');
+        uploadPlaceholder.classList.add('hidden');
+
+        await runAiAnalysis(currentImageBase64);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    async function runAiAnalysis(imageBase64) {
+      const apiKey = getApiKey();
+      if (!apiKey) {
+        alert('APIキーが設定されていません。');
+        return;
+      }
+
+      loadingSpinner.classList.remove('hidden');
+
+      try {
+        const base64Data = imageBase64.split(',')[1];
+        const mimeType = imageBase64.split(';')[0].split(':')[1];
+
+        const prompt = `この画像は血圧計のディスプレイです。最高血圧(SYS/最高)、最低血圧(DIA/最低)、脈拍(PUL/脈拍)の数値を読み取ってください。
+以下のJSONフォーマットのみを出力してください。
+{"sys": 数値, "dia": 数値, "pulse": 数値}`;
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: prompt },
+                { inlineData: { mimeType: mimeType, data: base64Data } }
+              ]
+            }],
+            generationConfig: { responseMimeType: "application/json" }
+          })
+        });
+
+        const data = await response.json();
+        const jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (jsonText) {
+          const parsed = JSON.parse(jsonText);
+          if (parsed.sys) inputSys.value = parsed.sys;
+          if (parsed.dia) inputDia.value = parsed.dia;
+          if (parsed.pulse) inputPulse.value = parsed.pulse;
+
+          successBanner.classList.remove('hidden');
+        } else {
+          throw new Error('解析失敗');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('画像解析に失敗しました。もう一度撮影してください。');
+      } finally {
+        loadingSpinner.classList.add('hidden');
+      }
+    }
+
+    // --- 端末内保存 ---
+    recordForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      const newRecord = {
+        id: Date.now(),
+        datetime: inputDateTime.value,
+        sys: parseInt(inputSys.value),
+        dia: parseInt(inputDia.value),
+        pulse: parseInt(inputPulse.value)
+      };
+
+      records.push(newRecord);
+      records.sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
+      localStorage.setItem('bp_records', JSON.stringify(records));
+
+      renderHistory();
+
+      inputSys.value = '';
+      inputDia.value = '';
+      inputPulse.value = '';
+      successBanner.classList.add('hidden');
+      imagePreview.classList.add('hidden');
+      uploadPlaceholder.classList.remove('hidden');
+      cameraInput.value = '';
+
+      alert('記録を端末に保存しました！');
+    });
+
+    // CSVテキスト生成（UTF-8 BOM付き）
+    function generateCsvString() {
+      let csvContent = "\uFEFF日時,最高血圧(mmHg),最低血圧(mmHg),脈拍(bpm)\n";
+      records.forEach(r => {
+        csvContent += `"${r.datetime}",${r.sys},${r.dia},${r.pulse}\n`;
+      });
+      return csvContent;
+    }
+
+    // --- GoogleドライブへCSV一括保存（上書き） ---
+    uploadDriveBtn.addEventListener('click', async () => {
+      if (records.length === 0) {
+        alert('保存する記録がありません。');
+        return;
+      }
+
+      const gasUrl = getGasUrl();
+      if (!gasUrl) {
+        alert('設定画面から GAS Web App URL を入力してください。');
+        configModal.classList.remove('hidden');
+        return;
+      }
+
+      uploadDriveBtn.disabled = true;
+      uploadDriveBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Googleドライブへ送信中...`;
+
+      try {
+        const csvText = generateCsvString();
+        const payload = {
+          fileName: "血圧記録.csv",
+          csvContent: csvText
+        };
+
+        await fetch(gasUrl, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify(payload)
+        });
+
+        alert('Googleドライブへ「血圧記録.csv」を保存・更新しました！\nパソコンのGoogleドライブで確認できます。');
+      } catch (err) {
+        console.error(err);
+        alert('送信に失敗しました。電波状況などを確認してください。');
+      } finally {
+        uploadDriveBtn.disabled = false;
+        uploadDriveBtn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up text-lg"></i> GoogleドライブへCSVを保存 (上書き)`;
+      }
+    });
+
+    // --- スマホに直接CSVダウンロード ---
+    downloadCsvBtn.addEventListener('click', () => {
+      if (records.length === 0) {
+        alert('ダウンロードする記録がありません。');
+        return;
+      }
+
+      const csvContent = generateCsvString();
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `血圧記録_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // 全削除
+    clearAllBtn.addEventListener('click', () => {
+      if (records.length === 0) return;
+      if (confirm('すべての血圧記録を削除しますか？')) {
+        records = [];
+        localStorage.removeItem('bp_records');
+        renderHistory();
+      }
+    });
+
+    // 個別削除
+    window.deleteRecord = function(id) {
+      if (confirm('この記録を削除しますか？')) {
+        records = records.filter(r => r.id !== id);
+        localStorage.setItem('bp_records', JSON.stringify(records));
+        renderHistory();
+      }
+    };
+
+    function renderHistory() {
+      historyList.innerHTML = '';
+      recordCount.textContent = `${records.length} 件`;
+
+      const displayRecords = [...records].reverse();
+
+      if (displayRecords.length === 0) {
+        historyList.innerHTML = `<p class="text-center text-slate-400 py-6 text-sm">記録されたデータはありません</p>`;
+      } else {
+        displayRecords.forEach(item => {
+          const dateObj = new Date(item.datetime);
+          const formattedDate = `${dateObj.getFullYear()}/${(dateObj.getMonth()+1).toString().padStart(2,'0')}/${dateObj.getDate().toString().padStart(2,'0')} ${dateObj.getHours().toString().padStart(2,'0')}:${dateObj.getMinutes().toString().padStart(2,'0')}`;
+
+          const card = document.createElement('div');
+          card.className = "bg-slate-50 border border-slate-200 rounded-xl p-3 flex justify-between items-center shadow-sm";
+          card.innerHTML = `
+            <div>
+              <div class="mb-1">
+                <span class="text-xs font-bold text-slate-500">${formattedDate}</span>
+              </div>
+              <div class="flex gap-4 text-sm font-bold">
+                <span class="text-rose-600"><span class="text-[10px] font-normal text-slate-400 mr-0.5">最高</span> ${item.sys}</span>
+                <span class="text-blue-600"><span class="text-[10px] font-normal text-slate-400 mr-0.5">最低</span> ${item.dia}</span>
+                <span class="text-emerald-600"><span class="text-[10px] font-normal text-slate-400 mr-0.5">脈拍</span> ${item.pulse}</span>
+              </div>
+            </div>
+            <button onclick="deleteRecord(${item.id})" class="p-2 text-slate-400 hover:text-rose-500 transition" title="削除">
+              <i class="fa-solid fa-trash-can text-sm"></i>
+            </button>
+          `;
+          historyList.appendChild(card);
+        });
+      }
+    }
+  </script>
+</body>
+</html>
